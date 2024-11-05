@@ -1,0 +1,75 @@
+
+          {isConnected && optimismSepolia.id === chainId && <Button disabled={loading} onClick={async () => {
+            try {
+              setLoading(true)
+              let yourPick = selectedPick
+              let yourCrew = selectedCrew
+              if (yourPick === "random") {
+                const random = ["north", "south"];
+                const randomIndex = Math.floor(Math.random() * 2);
+                yourPick = random[randomIndex];
+                setSelectedPick(yourPick)
+              }
+              if (yourCrew === "random") {
+                const randomIndex = Math.floor(Math.random() * 6);
+                yourCrew = crews[randomIndex].text;
+                setSelectedCrew(randomIndex.toString())
+              } else {
+                yourCrew = crews[parseInt(selectedCrew)].text
+              }
+              console.log(yourPick)
+              console.log(yourCrew)
+              setPickedCrew(yourCrew)
+              setPickedCastle(yourPick)
+              const node = { subdomain: "0x9b829bf1e151def03532ab355cdfe5cee001f4b0.us.gaianet.network", "model_name": "Meta-Llama-3-8B-Instruct-Q5_K_M" }
+              const reasonToAttack = await generateAI(`{"crew":"${yourCrew}","attacking":"${yourPick}"}`, `You're an attack sequence generator there is a war between north and south castle, people can pick which castle they gonna attack by "attacking" data, people can pick what crew they attack with by "crew" data,give them a story on why they should attack their particular castle and how do they attack them from provided data, make it one liner,short, and concise`, node)
+              const why = reasonToAttack
+              const imageGenerator = await generateAI(`{"story":"${(why as any).choices[0].message.content}","image_prompt":"${imagePrompt}"}`, `based the story data replace [terrain type],[attacking group],[attacking action],[attacking action 2],[defending group],[Pick 'north castle attack' or 'south castle attack'], do not change the prompt only replace the bracket, answer in this schema {"image_prompt":"<image_prompt>"} with no explanation whatsoever, only answer in JSON format`, node)
+              const imageRes = imageGenerator
+              const cover = await uploadArweaveFrontend("image", `${process.env.NEXT_PUBLIC_URL}/screenshot/farcastles/1reason?text=${encodeURIComponent(`Reason why i attack ${yourPick} and joining ${yourCrew}`)}`)
+              const reason = await uploadArweaveFrontend("image", `${process.env.NEXT_PUBLIC_URL}/screenshot/farcastles/1reason?text=${encodeURIComponent((why as any).choices[0].message.content)}`)
+
+              const newGeneratedImage = await generateImageGaia(JSON.parse((imageRes as any).choices[0].message.content).image_prompt);
+              const all = await uploadArweaveFrontend("json", JSON.stringify({ cover: (cover as any).receiptId, reason: (reason as any).receiptId, art: (newGeneratedImage as any).receiptId }))
+              console.log(all)
+              setReceiptId((all as any).receiptId)
+              console.log((why as any).choices[0].message.content)
+              console.log("generated prompt")
+              console.log((imageRes as any).choices[0].message.content)
+              setAttackReason((why as any).choices[0].message.content)
+              setGeneratedImage(`https://uploader.irys.xyz/${(newGeneratedImage as any).receiptId}`)
+              setLoading(false)
+            } catch (e) {
+              try {
+                //@ts-ignore
+                if (e.response.status === 429) {
+                  try {
+                    //@ts-ignore
+                    const error = await e.response.text()
+                    notification.error(<div className="text-white">{error}</div>, { duration: 5000 });
+                    localStorage.setItem("error", error)
+                    setLoading(false)
+                  } catch {
+                    if (localStorage.getItem("error")) {
+                      notification.error(<div className="text-white">{localStorage.getItem("error")}</div>, { duration: 5000 });
+                    } else {
+                      notification.error(<div className="text-white">Sorry theres something error please try again</div>, { duration: 5000 });
+                    }
+                    setLoading(false)
+                  }
+                } else {
+                  notification.error(<div className="text-white">Sorry theres something error please try again</div>, { duration: 5000 });
+                }
+              } catch {
+                setLoading(false)
+                notification.error(<div className="text-white">Sorry theres something error please try again</div>, { duration: 5000 });
+              }
+              setLoading(false)
+
+
+
+
+            }
+
+          }
+          }>{loading ? "please wait..." : "Generate"}</Button>}
